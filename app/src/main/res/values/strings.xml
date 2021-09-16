@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Assessment</string>
+    <string name="error_unsupported_video">Video codec is not supproted</string>
+    <string name="error_unsupported_audio">Audio codec is not supported</string>
 </resources>
