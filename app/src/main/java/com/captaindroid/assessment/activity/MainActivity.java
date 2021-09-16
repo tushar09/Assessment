@@ -2,7 +2,10 @@ package com.captaindroid.assessment.activity;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.Manifest;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.widget.Toast;
 
@@ -43,7 +46,16 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        initializePlayer(Constants.VIDEO_URL);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 100);
+                return;
+            }else {
+                initializePlayer(Constants.VIDEO_URL);
+            }
+        }else {
+            initializePlayer(Constants.VIDEO_URL);
+        }
     }
 
     private void initializePlayer(String videoUrl) {
@@ -100,5 +112,22 @@ public class MainActivity extends AppCompatActivity {
                         : DefaultRenderersFactory.EXTENSION_RENDERER_MODE_OFF;
         return new DefaultRenderersFactory(/* context= */ this)
                 .setExtensionRendererMode(extensionRendererMode);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        switch (requestCode) {
+            case 100: {
+                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    initializePlayer(Constants.VIDEO_URL);
+                    Toast.makeText(this, "grant", Toast.LENGTH_SHORT).show();
+
+                } else {
+                    Toast.makeText(this, "grant not", Toast.LENGTH_SHORT).show();
+                }
+                return;
+            }
+        }
     }
 }
