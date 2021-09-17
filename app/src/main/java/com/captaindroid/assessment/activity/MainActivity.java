@@ -1,12 +1,19 @@
 package com.captaindroid.assessment.activity;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.pm.PackageManager;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
+import android.net.Network;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Looper;
 import android.widget.Toast;
 
 import com.captaindroid.assessment.R;
@@ -29,7 +36,10 @@ import com.google.android.exoplayer2.trackselection.TrackSelection;
 import com.google.android.exoplayer2.trackselection.TrackSelectionArray;
 import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
+import com.google.android.exoplayer2.util.Log;
 import com.google.android.exoplayer2.util.Util;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationResult;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -40,6 +50,12 @@ public class MainActivity extends AppCompatActivity {
     private TrackGroupArray lastSeenTrackGroupArray;
     private SimpleExoPlayer player;
 
+    private LocationListener locationCallback;
+    private LocationManager fusedLocationClient;
+    private Location lastLocation;
+    private int timer;
+    private Thread thread;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -48,14 +64,19 @@ public class MainActivity extends AppCompatActivity {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 100);
+                requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, 100);
                 return;
             }else {
-                initializePlayer(Constants.VIDEO_URL);
+                initialize();
             }
         }else {
-            initializePlayer(Constants.VIDEO_URL);
+            initialize();
         }
+    }
+
+    private void initialize(){
+        initializeLocation();
+        initializePlayer(Constants.VIDEO_URL);
     }
 
     private void initializePlayer(String videoUrl) {
@@ -102,7 +123,75 @@ public class MainActivity extends AppCompatActivity {
         binding.player.setPlayer(player);
     }
 
-    public RenderersFactory buildRenderersFactory(boolean preferExtensionRenderer) {
+    private void initializeLocation(){
+
+        locationCallback = new LocationListener(){
+
+            @Override
+            public void onLocationChanged(@NonNull Location location) {
+                double distance = 0;
+                if(lastLocation == null){
+                    lastLocation = location;
+                    binding.tvLocation.setText("Last location update: " + System.currentTimeMillis()  + "\nLAT: " + location.getLatitude() + "\nLNG: " + location.getLongitude());
+                }else{
+                    distance = lastLocation.distanceTo(location);
+                    if(distance > 9){
+                        lastLocation = location;
+                    }
+                    binding.tvLocation.setText("Last location update: " + System.currentTimeMillis() + "\nLAT: " + location.getLatitude() + "\nLNG: " + location.getLongitude() + "\nDistance: " + distance);
+                }
+                fusedLocationClient.removeUpdates(locationCallback);
+                Toast.makeText(MainActivity.this, getString(R.string.location_updated), Toast.LENGTH_SHORT).show();
+                Log.e("location", location.getLatitude() + " " + location.getLongitude());
+            }
+
+            @Override
+            public void onStatusChanged(String provider, int status, Bundle extras) {
+
+            }
+
+            @Override
+            public void onProviderEnabled(@NonNull String provider) {
+
+            }
+
+            @Override
+            public void onProviderDisabled(@NonNull String provider) {
+
+            }
+        };
+
+        fusedLocationClient = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        thread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                timer = 10;
+                while(timer > 0){
+                    timer--;
+                    fusedLocationClient.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5000L, 1F, locationCallback, Looper.getMainLooper());
+                    if(timer == 0){
+                        timer = 10;
+                    }
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            binding.tvTimer.setText("Next Location update in: " + timer + " seconds");
+                        }
+                    });
+
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        });
+        thread.start();
+
+    }
+
+    private RenderersFactory buildRenderersFactory(boolean preferExtensionRenderer) {
         @DefaultRenderersFactory.ExtensionRendererMode
         int extensionRendererMode =
                 true
@@ -120,11 +209,10 @@ public class MainActivity extends AppCompatActivity {
         switch (requestCode) {
             case 100: {
                 if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    initializePlayer(Constants.VIDEO_URL);
-                    Toast.makeText(this, "grant", Toast.LENGTH_SHORT).show();
-
+                    initialize();
+                    Toast.makeText(this, getString(R.string.permissoin_granted), Toast.LENGTH_SHORT).show();
                 } else {
-                    Toast.makeText(this, "grant not", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.permissoin_not_granted), Toast.LENGTH_SHORT).show();
                 }
                 return;
             }
