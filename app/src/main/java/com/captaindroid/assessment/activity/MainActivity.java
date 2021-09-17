@@ -77,6 +77,32 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, 100);
+                return;
+            } else {
+                initialize();
+            }
+        } else {
+            initialize();
+        }
+    }
+
+    private void getVolume() {
+        float max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        float audio = (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) / max) * 100;
+        binding.pbVolume.setProgressCompat((int) audio, true);
+        binding.tvAudioVolume.setText(getString(R.string.audio_volume) + " " + binding.pbVolume.getProgress());
+    }
+
+    private void initialize() {
+        initializeLocation();
+        initializeSensors();
+        initializePlayer(Constants.VIDEO_URL);
+    }
+
+    private void initializeSensors() {
         audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
         getVolume();
 
@@ -136,29 +162,6 @@ public class MainActivity extends AppCompatActivity {
 
             }
         };
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, 100);
-                return;
-            } else {
-                initialize();
-            }
-        } else {
-            initialize();
-        }
-    }
-
-    private void getVolume() {
-        float max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
-        float audio = (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) / max) * 100;
-        binding.pbVolume.setProgressCompat((int) audio, true);
-        binding.tvAudioVolume.setText(getString(R.string.audio_volume) + " " + binding.pbVolume.getProgress());
-    }
-
-    private void initialize() {
-        initializeLocation();
-        initializePlayer(Constants.VIDEO_URL);
     }
 
     private void initializePlayer(String videoUrl) {
