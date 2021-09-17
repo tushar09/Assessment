@@ -316,9 +316,9 @@ public class MainActivity extends AppCompatActivity {
             case 100: {
                 if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                     initialize();
-                    Toast.makeText(this, getString(R.string.permissoin_granted), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.permission_granted), Toast.LENGTH_SHORT).show();
                 } else {
-                    Toast.makeText(this, getString(R.string.permissoin_not_granted), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, getString(R.string.permission_not_granted), Toast.LENGTH_SHORT).show();
                 }
                 return;
             }

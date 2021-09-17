@@ -2,8 +2,8 @@
     <string name="app_name">Assessment</string>
     <string name="error_unsupported_video">Video codec is not supproted</string>
     <string name="error_unsupported_audio">Audio codec is not supported</string>
-    <string name="permissoin_not_granted">Permission not granted</string>
-    <string name="permissoin_granted">Permisson granted</string>
+    <string name="permission_not_granted">Permission not granted</string>
+    <string name="permission_granted">Permisson granted</string>
     <string name="location_updated">Location updated</string>
     <string name="audio_volume">Audio volume:</string>
     <string name="shake_detected">Shake detected!!</string>
