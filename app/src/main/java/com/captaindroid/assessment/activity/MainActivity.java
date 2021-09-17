@@ -7,6 +7,10 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
@@ -27,6 +31,8 @@ import com.google.android.exoplayer2.RenderersFactory;
 import com.google.android.exoplayer2.SeekParameters;
 import com.google.android.exoplayer2.SimpleExoPlayer;
 import com.google.android.exoplayer2.audio.AudioAttributes;
+import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory;
+import com.google.android.exoplayer2.source.ExtractorMediaSource;
 import com.google.android.exoplayer2.source.MediaSource;
 import com.google.android.exoplayer2.source.ProgressiveMediaSource;
 import com.google.android.exoplayer2.source.TrackGroupArray;
@@ -36,11 +42,20 @@ import com.google.android.exoplayer2.trackselection.MappingTrackSelector;
 import com.google.android.exoplayer2.trackselection.TrackSelection;
 import com.google.android.exoplayer2.trackselection.TrackSelectionArray;
 import com.google.android.exoplayer2.upstream.DataSource;
+import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
+import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory;
+import com.google.android.exoplayer2.upstream.FileDataSource;
+import com.google.android.exoplayer2.upstream.cache.CacheDataSink;
+import com.google.android.exoplayer2.upstream.cache.CacheDataSource;
+import com.google.android.exoplayer2.upstream.cache.LeastRecentlyUsedCacheEvictor;
+import com.google.android.exoplayer2.upstream.cache.SimpleCache;
 import com.google.android.exoplayer2.util.Log;
 import com.google.android.exoplayer2.util.Util;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationResult;
+
+import java.io.File;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -58,25 +73,43 @@ public class MainActivity extends AppCompatActivity {
     private Thread thread;
     private boolean isLocationUpdateEnabled;
 
+    private SensorManager sensorManager;
+    private SensorEventListener sensorEventListener;
+    private long lastUpdate;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
+        sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        lastUpdate = System.currentTimeMillis();
+        sensorEventListener = new SensorEventListener() {
+            @Override
+            public void onSensorChanged(SensorEvent event) {
+                getAccelerometer(event);
+            }
+
+            @Override
+            public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+            }
+        };
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                 requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, 100);
                 return;
-            }else {
+            } else {
                 initialize();
             }
-        }else {
+        } else {
             initialize();
         }
     }
 
-    private void initialize(){
+    private void initialize() {
         initializeLocation();
         initializePlayer(Constants.VIDEO_URL);
     }
@@ -97,7 +130,9 @@ public class MainActivity extends AppCompatActivity {
         player = new SimpleExoPlayer.Builder(this, renderersFactory).setTrackSelector(trackSelector).build();
         player.setAudioAttributes(AudioAttributes.DEFAULT);
         DataSource.Factory dataSourceFactory = new DefaultDataSourceFactory(this, Util.getUserAgent(this, getString(R.string.app_name)));
-        MediaSource videoSource = new ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(Uri.parse(videoUrl));
+        //MediaSource videoSource = new ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(Uri.parse(videoUrl));
+        MediaSource videoSource = new ExtractorMediaSource(Uri.parse(videoUrl),
+                new CacheDataSourceFactory(this, 100 * 1024 * 1024, 5 * 1024 * 1024), new DefaultExtractorsFactory(), null, null);
 
         player.prepare(videoSource);
         player.setSeekParameters(SeekParameters.CLOSEST_SYNC);
@@ -125,19 +160,19 @@ public class MainActivity extends AppCompatActivity {
         binding.player.setPlayer(player);
     }
 
-    private void initializeLocation(){
+    private void initializeLocation() {
 
-        locationCallback = new LocationListener(){
+        locationCallback = new LocationListener() {
 
             @Override
             public void onLocationChanged(@NonNull Location location) {
                 double distance = 0;
-                if(lastLocation == null){
+                if (lastLocation == null) {
                     lastLocation = location;
-                    binding.tvLocation.setText("Last location update: " + System.currentTimeMillis()  + "\nLAT: " + location.getLatitude() + "\nLNG: " + location.getLongitude());
-                }else{
+                    binding.tvLocation.setText("Last location update: " + System.currentTimeMillis() + "\nLAT: " + location.getLatitude() + "\nLNG: " + location.getLongitude());
+                } else {
                     distance = lastLocation.distanceTo(location);
-                    if(distance > 9){
+                    if (distance > 9) {
                         lastLocation = location;
                     }
                     binding.tvLocation.setText("Last location update: " + System.currentTimeMillis() + "\nLAT: " + location.getLatitude() + "\nLNG: " + location.getLongitude() + "\nDistance: " + distance);
@@ -169,13 +204,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void run() {
                 timer = 10;
-                while(timer > 0 ){
+                while (timer > 0) {
                     timer--;
-                    if(isLocationUpdateEnabled){
+                    if (isLocationUpdateEnabled) {
                         fusedLocationClient.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5000L, 1F, locationCallback, Looper.getMainLooper());
                     }
 
-                    if(timer == 0){
+                    if (timer == 0) {
                         timer = 10;
                     }
                     runOnUiThread(new Runnable() {
@@ -209,6 +244,18 @@ public class MainActivity extends AppCompatActivity {
                 .setExtensionRendererMode(extensionRendererMode);
     }
 
+    private void getAccelerometer(SensorEvent event) {
+        float[] values = event.values;
+        float x = values[0];
+        float y = values[1];
+        float z = values[2];
+
+        String message = String.format("x = %f, y = %f, z = %f", x, y, z);
+        if(Math.abs(z) > 1f){
+            player.seekTo((long) (player.getCurrentPosition() + (z * -1000f)));
+        }
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -235,9 +282,15 @@ public class MainActivity extends AppCompatActivity {
             player.release();
         }
 
-        if(locationCallback != null){
+        if (locationCallback != null) {
             fusedLocationClient.removeUpdates(locationCallback);
         }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        sensorManager.unregisterListener(sensorEventListener);
     }
 
     @Override
@@ -247,7 +300,7 @@ public class MainActivity extends AppCompatActivity {
         if (player != null) {
             player.setPlayWhenReady(true);
         }
-
+        sensorManager.registerListener(sensorEventListener, sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE), SensorManager.SENSOR_DELAY_NORMAL);
     }
 
     @Override
@@ -258,8 +311,35 @@ public class MainActivity extends AppCompatActivity {
             player.setPlayWhenReady(false);
         }
 
-        if(locationCallback != null){
+        if (locationCallback != null) {
             fusedLocationClient.removeUpdates(locationCallback);
+        }
+    }
+
+    public class CacheDataSourceFactory implements DataSource.Factory {
+        private final Context context;
+        private final DefaultDataSourceFactory defaultDatasourceFactory;
+        private final long maxFileSize, maxCacheSize;
+
+        public CacheDataSourceFactory(Context context, long maxCacheSize, long maxFileSize) {
+            super();
+            this.context = context;
+            this.maxCacheSize = maxCacheSize;
+            this.maxFileSize = maxFileSize;
+            String userAgent = Util.getUserAgent(context, context.getString(R.string.app_name));
+            DefaultBandwidthMeter bandwidthMeter = new DefaultBandwidthMeter();
+            defaultDatasourceFactory = new DefaultDataSourceFactory(this.context,
+                    bandwidthMeter,
+                    new DefaultHttpDataSourceFactory(userAgent, bandwidthMeter));
+        }
+
+        @Override
+        public DataSource createDataSource() {
+            LeastRecentlyUsedCacheEvictor evictor = new LeastRecentlyUsedCacheEvictor(maxCacheSize);
+            SimpleCache simpleCache = new SimpleCache(new File(context.getCacheDir(), "media"), evictor);
+            return new CacheDataSource(simpleCache, defaultDatasourceFactory.createDataSource(),
+                    new FileDataSource(), new CacheDataSink(simpleCache, maxFileSize),
+                    CacheDataSource.FLAG_BLOCK_ON_CACHE | CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR, null);
         }
     }
 }
