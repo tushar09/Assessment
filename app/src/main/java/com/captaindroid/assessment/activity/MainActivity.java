@@ -14,7 +14,6 @@ import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
-import android.net.Network;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -34,7 +33,6 @@ import com.google.android.exoplayer2.audio.AudioAttributes;
 import com.google.android.exoplayer2.extractor.DefaultExtractorsFactory;
 import com.google.android.exoplayer2.source.ExtractorMediaSource;
 import com.google.android.exoplayer2.source.MediaSource;
-import com.google.android.exoplayer2.source.ProgressiveMediaSource;
 import com.google.android.exoplayer2.source.TrackGroupArray;
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection;
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
@@ -52,8 +50,6 @@ import com.google.android.exoplayer2.upstream.cache.LeastRecentlyUsedCacheEvicto
 import com.google.android.exoplayer2.upstream.cache.SimpleCache;
 import com.google.android.exoplayer2.util.Log;
 import com.google.android.exoplayer2.util.Util;
-import com.google.android.gms.location.LocationCallback;
-import com.google.android.gms.location.LocationResult;
 
 import java.io.File;
 
@@ -88,7 +84,7 @@ public class MainActivity extends AppCompatActivity {
         sensorEventListener = new SensorEventListener() {
             @Override
             public void onSensorChanged(SensorEvent event) {
-                getAccelerometer(event);
+                getGyroscope(event);
             }
 
             @Override
@@ -244,13 +240,14 @@ public class MainActivity extends AppCompatActivity {
                 .setExtensionRendererMode(extensionRendererMode);
     }
 
-    private void getAccelerometer(SensorEvent event) {
+    private void getGyroscope(SensorEvent event) {
         float[] values = event.values;
         float x = values[0];
         float y = values[1];
         float z = values[2];
 
         String message = String.format("x = %f, y = %f, z = %f", x, y, z);
+        binding.tvGyro.setText("Gyro: " + message);
         if(Math.abs(z) > 1f){
             player.seekTo((long) (player.getCurrentPosition() + (z * -1000f)));
         }
