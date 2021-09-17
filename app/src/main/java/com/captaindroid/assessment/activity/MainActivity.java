@@ -114,6 +114,7 @@ public class MainActivity extends AppCompatActivity {
         float max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
         float audio = (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) / max) * 100;
         binding.pbVolume.setProgressCompat((int) audio, true);
+        binding.tvAudioVolume.setText(getString(R.string.audio_volume) + " " + binding.pbVolume.getProgress());
     }
 
     private void initialize() {
@@ -181,12 +182,12 @@ public class MainActivity extends AppCompatActivity {
                     distance = lastLocation.distanceTo(location);
                     if (distance > 9) {
                         lastLocation = location;
+                        player.seekTo(0);
                     }
                     binding.tvLocation.setText("Last location update: " + System.currentTimeMillis() + "\nLAT: " + location.getLatitude() + "\nLNG: " + location.getLongitude() + "\nDistance: " + distance);
                 }
                 fusedLocationClient.removeUpdates(locationCallback);
                 Toast.makeText(MainActivity.this, getString(R.string.location_updated), Toast.LENGTH_SHORT).show();
-                Log.e("location", location.getLatitude() + " " + location.getLongitude());
             }
 
             @Override
@@ -263,7 +264,7 @@ public class MainActivity extends AppCompatActivity {
             player.seekTo((long) (player.getCurrentPosition() + (z * -1000f)));
         }
 
-        if(Math.abs(x) > 1.5f){
+        if(Math.abs(x) > 1f){
             audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, (int) (x * -10f), 0);
             getVolume();
         }
