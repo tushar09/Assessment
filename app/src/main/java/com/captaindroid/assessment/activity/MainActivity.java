@@ -4,6 +4,7 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.location.Location;
@@ -55,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
     private Location lastLocation;
     private int timer;
     private Thread thread;
+    private boolean isLocationUpdateEnabled;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -163,12 +165,16 @@ public class MainActivity extends AppCompatActivity {
 
         fusedLocationClient = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         thread = new Thread(new Runnable() {
+            @SuppressLint("MissingPermission")
             @Override
             public void run() {
                 timer = 10;
-                while(timer > 0){
+                while(timer > 0 ){
                     timer--;
-                    fusedLocationClient.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5000L, 1F, locationCallback, Looper.getMainLooper());
+                    if(isLocationUpdateEnabled){
+                        fusedLocationClient.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5000L, 1F, locationCallback, Looper.getMainLooper());
+                    }
+
                     if(timer == 0){
                         timer = 10;
                     }
@@ -216,6 +222,44 @@ public class MainActivity extends AppCompatActivity {
                 }
                 return;
             }
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        isLocationUpdateEnabled = false;
+        if (player != null) {
+            player.setPlayWhenReady(false);
+            player.stop();
+            player.release();
+        }
+
+        if(locationCallback != null){
+            fusedLocationClient.removeUpdates(locationCallback);
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        isLocationUpdateEnabled = true;
+        if (player != null) {
+            player.setPlayWhenReady(true);
+        }
+
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        isLocationUpdateEnabled = false;
+        if (player != null) {
+            player.setPlayWhenReady(false);
+        }
+
+        if(locationCallback != null){
+            fusedLocationClient.removeUpdates(locationCallback);
         }
     }
 }
