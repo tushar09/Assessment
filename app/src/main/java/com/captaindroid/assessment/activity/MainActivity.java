@@ -42,18 +42,8 @@ import com.google.android.exoplayer2.trackselection.MappingTrackSelector;
 import com.google.android.exoplayer2.trackselection.TrackSelection;
 import com.google.android.exoplayer2.trackselection.TrackSelectionArray;
 import com.google.android.exoplayer2.upstream.DataSource;
-import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
-import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory;
-import com.google.android.exoplayer2.upstream.FileDataSource;
-import com.google.android.exoplayer2.upstream.cache.CacheDataSink;
-import com.google.android.exoplayer2.upstream.cache.CacheDataSource;
-import com.google.android.exoplayer2.upstream.cache.LeastRecentlyUsedCacheEvictor;
-import com.google.android.exoplayer2.upstream.cache.SimpleCache;
-import com.google.android.exoplayer2.util.Log;
 import com.google.android.exoplayer2.util.Util;
-
-import java.io.File;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -76,6 +66,11 @@ public class MainActivity extends AppCompatActivity {
 
     private AudioManager audioManager;
 
+
+    private float x1, x2, x3;
+    private float shakeThreshold = (float) 7.0;
+    private boolean isShakeValueAssigned;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -89,7 +84,51 @@ public class MainActivity extends AppCompatActivity {
         sensorEventListener = new SensorEventListener() {
             @Override
             public void onSensorChanged(SensorEvent event) {
-                getGyroscope(event);
+                if(event.sensor.getType() == Sensor.TYPE_ACCELEROMETER){
+                    float x,y,z;
+                    x = event.values[0];
+                    y = event.values[1];
+                    z = event.values[2];
+                    if (!isShakeValueAssigned) {
+                        x1 = x;
+                        x2 = y;
+                        x3 = z;
+                        isShakeValueAssigned = true;
+                    } else {
+
+                        float changeX = Math.abs(x1 - x);
+                        float changeY = Math.abs(x2 - y);
+                        float changeZ = Math.abs(x3 - z);
+
+                        if (changeX < shakeThreshold) {
+                            changeX = (float) 0.0;
+                        }
+                        if (changeY < shakeThreshold) {
+                            changeY = (float) 0.0;
+                        }
+                        if (changeZ < shakeThreshold) {
+                            changeZ = (float) 0.0;
+                        }
+
+                        x1 = x;
+                        x2 = y;
+                        x3 = z;
+
+                        if (changeX > changeY) {
+                            Toast.makeText(MainActivity.this, R.string.shake_detected, Toast.LENGTH_SHORT).show();
+                            player.setPlayWhenReady(false);
+                        }
+
+//                        if (changeY > changeZ) {
+//                            Toast.makeText(MainActivity.this, R.string.shake_detected, Toast.LENGTH_SHORT).show();
+//                            player.setPlayWhenReady(false);
+//                        }
+                    }
+                }else if(event.sensor.getType() == Sensor.TYPE_GYROSCOPE){
+                    getGyroscope(event);
+                }
+
+
             }
 
             @Override
@@ -315,6 +354,7 @@ public class MainActivity extends AppCompatActivity {
             player.setPlayWhenReady(true);
         }
         sensorManager.registerListener(sensorEventListener, sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE), SensorManager.SENSOR_DELAY_NORMAL);
+        sensorManager.registerListener(sensorEventListener, sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_NORMAL);
     }
 
     @Override

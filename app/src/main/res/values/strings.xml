@@ -6,4 +6,5 @@
     <string name="permissoin_granted">Permisson granted</string>
     <string name="location_updated">Location updated</string>
     <string name="audio_volume">Audio volume:</string>
+    <string name="shake_detected">Shake detected!!</string>
 </resources>
