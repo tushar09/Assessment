@@ -14,6 +14,7 @@ import android.hardware.SensorManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -23,6 +24,7 @@ import android.widget.Toast;
 import com.captaindroid.assessment.R;
 import com.captaindroid.assessment.databinding.ActivityMainBinding;
 import com.captaindroid.assessment.utils.Constants;
+import com.captaindroid.assessment.utils.ExoPlayerCacheDataSourceFactory;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.DefaultRenderersFactory;
 import com.google.android.exoplayer2.Player;
@@ -71,7 +73,8 @@ public class MainActivity extends AppCompatActivity {
 
     private SensorManager sensorManager;
     private SensorEventListener sensorEventListener;
-    private long lastUpdate;
+
+    private AudioManager audioManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -79,8 +82,10 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
+        audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
+        getVolume();
+
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-        lastUpdate = System.currentTimeMillis();
         sensorEventListener = new SensorEventListener() {
             @Override
             public void onSensorChanged(SensorEvent event) {
@@ -103,6 +108,12 @@ public class MainActivity extends AppCompatActivity {
         } else {
             initialize();
         }
+    }
+
+    private void getVolume() {
+        float max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+        float audio = (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) / max) * 100;
+        binding.pbVolume.setProgressCompat((int) audio, true);
     }
 
     private void initialize() {
@@ -128,7 +139,7 @@ public class MainActivity extends AppCompatActivity {
         DataSource.Factory dataSourceFactory = new DefaultDataSourceFactory(this, Util.getUserAgent(this, getString(R.string.app_name)));
         //MediaSource videoSource = new ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(Uri.parse(videoUrl));
         MediaSource videoSource = new ExtractorMediaSource(Uri.parse(videoUrl),
-                new CacheDataSourceFactory(this, 100 * 1024 * 1024, 5 * 1024 * 1024), new DefaultExtractorsFactory(), null, null);
+                new ExoPlayerCacheDataSourceFactory(this, 100 * 1024 * 1024, 5 * 1024 * 1024), new DefaultExtractorsFactory(), null, null);
 
         player.prepare(videoSource);
         player.setSeekParameters(SeekParameters.CLOSEST_SYNC);
@@ -251,6 +262,11 @@ public class MainActivity extends AppCompatActivity {
         if(Math.abs(z) > 1f){
             player.seekTo((long) (player.getCurrentPosition() + (z * -1000f)));
         }
+
+        if(Math.abs(x) > 1.5f){
+            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, (int) (x * -10f), 0);
+            getVolume();
+        }
     }
 
     @Override
@@ -310,33 +326,6 @@ public class MainActivity extends AppCompatActivity {
 
         if (locationCallback != null) {
             fusedLocationClient.removeUpdates(locationCallback);
-        }
-    }
-
-    public class CacheDataSourceFactory implements DataSource.Factory {
-        private final Context context;
-        private final DefaultDataSourceFactory defaultDatasourceFactory;
-        private final long maxFileSize, maxCacheSize;
-
-        public CacheDataSourceFactory(Context context, long maxCacheSize, long maxFileSize) {
-            super();
-            this.context = context;
-            this.maxCacheSize = maxCacheSize;
-            this.maxFileSize = maxFileSize;
-            String userAgent = Util.getUserAgent(context, context.getString(R.string.app_name));
-            DefaultBandwidthMeter bandwidthMeter = new DefaultBandwidthMeter();
-            defaultDatasourceFactory = new DefaultDataSourceFactory(this.context,
-                    bandwidthMeter,
-                    new DefaultHttpDataSourceFactory(userAgent, bandwidthMeter));
-        }
-
-        @Override
-        public DataSource createDataSource() {
-            LeastRecentlyUsedCacheEvictor evictor = new LeastRecentlyUsedCacheEvictor(maxCacheSize);
-            SimpleCache simpleCache = new SimpleCache(new File(context.getCacheDir(), "media"), evictor);
-            return new CacheDataSource(simpleCache, defaultDatasourceFactory.createDataSource(),
-                    new FileDataSource(), new CacheDataSink(simpleCache, maxFileSize),
-                    CacheDataSource.FLAG_BLOCK_ON_CACHE | CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR, null);
         }
     }
 }
